@@ -1,0 +1,84 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Novo Chamado</title>
+    <link rel="stylesheet" href="{% static 'tickets/css/style.css' %}">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h3>Sistema de Chamados</h3>
+            <a href="{% url 'dashboard' %}" class="btn-logout">Voltar</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="card" style="max-width: 600px; margin: 0 auto;">
+            <h2>Abrir Novo Chamado</h2>
+            <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="POST" enctype="multipart/form-data" id="create-form">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label>Solicitante</label>
+                    <input type="text" value="{{ user.username }}" disabled style="background-color: #f0f0f0;">
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.titulo.id_for_label }}">{{ form.titulo.label }}</label>
+                    {{ form.titulo }}
+                    {% if form.titulo.errors %}
+                        <span class="error">{{ form.titulo.errors }}</span>
+                    {% endif %}
+                </div>
+
+                <div class="flex-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="{{ form.categoria.id_for_label }}">{{ form.categoria.label }}</label>
+                        {{ form.categoria }}
+                        {% if form.categoria.errors %}
+                            <span class="error">{{ form.categoria.errors }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="{{ form.prioridade.id_for_label }}">{{ form.prioridade.label }}</label>
+                        {{ form.prioridade }}
+                        {% if form.prioridade.errors %}
+                            <span class="error">{{ form.prioridade.errors }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.descricao.id_for_label }}">{{ form.descricao.label }}</label>
+                    {{ form.descricao }}
+                    {% if form.descricao.errors %}
+                        <span class="error">{{ form.descricao.errors }}</span>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label>Anexos (Opcional)</label>
+                    <input type="file" name="anexos" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip">
+                    <small style="color: #666; display: block; margin-top: 5px;">
+                        Você pode selecionar múltiplos arquivos. Máximo: 25MB por arquivo.
+                    </small>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Criar Chamado</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

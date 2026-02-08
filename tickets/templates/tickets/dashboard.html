@@ -1,0 +1,139 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - Chamados</title>
+    <link rel="stylesheet" href="{% static 'tickets/css/style.css' %}">
+</head>
+
+<body>
+    <header>
+        <div class="header-content">
+            <h3>Sistema de Chamados</h3>
+            <div>
+                <span id="user-display" style="margin-right: 15px; font-size: 0.9rem;">
+                    {{ user.email }} ({% if user.perfil.tipo == 'TECNICO' %}Técnico{% else %}Funcional{% endif %})
+                </span>
+                <a href="{% url 'logout' %}" class="btn-logout">Sair</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="flex-row" style="justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2>Lista de Chamados</h2>
+            {% if user.perfil.tipo == 'FUNCIONAL' %}
+                <a href="{% url 'criar' %}" class="btn btn-primary">+ Novo Chamado</a>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <!-- Formulário de Filtros -->
+            <form method="GET" action="{% url 'dashboard' %}">
+                <div class="filters">
+                    <input type="text" name="search" id="search-text" placeholder="Buscar por título..."
+                           value="{{ request.GET.search }}">
+
+                    <select name="status" id="filter-status">
+                        <option value="">Todos os Status</option>
+                        <option value="ABERTO" {% if request.GET.status == 'ABERTO' %}selected{% endif %}>Aberto</option>
+                        <option value="EM_ANDAMENTO" {% if request.GET.status == 'EM_ANDAMENTO' %}selected{% endif %}>Em andamento</option>
+                        <option value="BLOQUEADO" {% if request.GET.status == 'BLOQUEADO' %}selected{% endif %}>Com Bloqueio</option>
+                        <option value="VALIDACAO" {% if request.GET.status == 'VALIDACAO' %}selected{% endif %}>Aguardando Validação</option>
+                        <option value="MIGRACAO" {% if request.GET.status == 'MIGRACAO' %}selected{% endif %}>Em migração</option>
+                        <option value="CONCLUIDO" {% if request.GET.status == 'CONCLUIDO' %}selected{% endif %}>Concluído</option>
+                        <option value="DOC_PENDENTE" {% if request.GET.status == 'DOC_PENDENTE' %}selected{% endif %}>Documentação Pendente</option>
+                    </select>
+
+                    <select name="prioridade" id="filter-priority">
+                        <option value="">Todas Prioridades</option>
+                        <option value="BAIXA" {% if request.GET.prioridade == 'BAIXA' %}selected{% endif %}>Baixa</option>
+                        <option value="MEDIA" {% if request.GET.prioridade == 'MEDIA' %}selected{% endif %}>Média</option>
+                        <option value="ALTA" {% if request.GET.prioridade == 'ALTA' %}selected{% endif %}>Alta</option>
+                        <option value="URGENTE" {% if request.GET.prioridade == 'URGENTE' %}selected{% endif %}>Urgente</option>
+                    </select>
+
+                    <select name="solicitante" id="filter-solicitante">
+                        <option value="">Todos Solicitantes</option>
+                        {% for func in funcionais %}
+                        <option value="{{ func.id }}" {% if request.GET.solicitante|stringformat:"s" == func.id|stringformat:"s" %}selected{% endif %}>
+                            {{ func.username }}
+                        </option>
+                        {% endfor %}
+                    </select>
+
+                    <select name="tecnico" id="filter-tecnico">
+                        <option value="">Todos Técnicos</option>
+                        <option value="nao_atribuido" {% if request.GET.tecnico == 'nao_atribuido' %}selected{% endif %}>Não atribuído</option>
+                        {% for tec in tecnicos %}
+                        <option value="{{ tec.id }}" {% if request.GET.tecnico|stringformat:"s" == tec.id|stringformat:"s" %}selected{% endif %}>
+                            {{ tec.username }}
+                        </option>
+                        {% endfor %}
+                    </select>
+
+                    <button type="submit" class="btn btn-secondary">Filtrar</button>
+                    <a href="{% url 'dashboard' %}" class="btn btn-secondary">Limpar</a>
+                </div>
+            </form>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Título</th>
+                            <th>Categoria</th>
+                            <th>Status</th>
+                            <th>Prioridade</th>
+                            <th>Solicitante</th>
+                            <th>Técnico</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ticket-table-body">
+                        {% if chamados %}
+                            {% for chamado in chamados %}
+                            <tr onclick="window.location.href='{% url 'detalhes' chamado.id %}'" style="cursor: pointer;">
+                                <td>#{{ chamado.id }}</td>
+                                <td>{{ chamado.titulo }}</td>
+                                <td>{{ chamado.get_categoria_display }}</td>
+                                <td>
+                                    <span class="badge {% if chamado.status == 'ABERTO' %}st-aberto
+                                                        {% elif chamado.status == 'EM_ANDAMENTO' %}st-andamento
+                                                        {% elif chamado.status == 'BLOQUEADO' %}st-bloqueio
+                                                        {% elif chamado.status == 'VALIDACAO' %}st-validacao
+                                                        {% elif chamado.status == 'MIGRACAO' %}st-migracao
+                                                        {% elif chamado.status == 'CONCLUIDO' %}st-concluido
+                                                        {% elif chamado.status == 'DOC_PENDENTE' %}st-pendente
+                                                        {% endif %}">
+                                        {{ chamado.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{{ chamado.get_prioridade_display }}</td>
+                                <td>{{ chamado.solicitante.username }}</td>
+                                <td>
+                                    {% if chamado.tecnico %}
+                                        {{ chamado.tecnico.username }}
+                                    {% else %}
+                                        <span style="color:#999; font-style:italic">Não atribuído</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" style="text-align:center; padding: 20px;">
+                                    Nenhum chamado encontrado.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

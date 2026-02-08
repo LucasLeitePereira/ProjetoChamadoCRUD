@@ -1,0 +1,269 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Detalhes do Chamado</title>
+    <link rel="stylesheet" href="{% static 'tickets/css/style.css' %}">
+</head>
+
+<body>
+    <header>
+        <div class="header-content">
+            <h3>Detalhes <span id="ticket-id-display">#{{ chamado.id }}</span></h3>
+            <a href="{% url 'dashboard' %}" class="btn-logout">Voltar para Lista</a>
+        </div>
+    </header>
+
+    <div class="container">
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}"
+            style="margin-bottom: 20px; padding: 10px; border-radius: 4px; background: #d4edda; color: #155724; border: 1px solid #c3e6cb;">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data" id="details-form">
+            {% csrf_token %}
+
+            <div class="flex-row" style="align-items: flex-start;">
+
+                <!-- Coluna Esquerda: Informações do Chamado -->
+                <div class="card" style="flex: 2;">
+                    <h3>Informações do Chamado</h3>
+                    <hr style="margin: 10px 0;">
+
+                    <div class="form-group">
+                        <label>Título</label>
+                        <input type="text" name="titulo" value="{{ chamado.titulo }}" {% if chamado.status != 'ABERTO' or user.perfil.tipo != 'TECNICO' and chamado.solicitante != user %}disabled{% endif %}>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Descrição</label>
+                        <textarea name="descricao" rows="5" {% if chamado.status != 'ABERTO' or user.perfil.tipo != 'TECNICO' and chamado.solicitante != user %}disabled{% endif %}>{{ chamado.descricao }}</textarea>
+                    </div>
+
+                    <div class="flex-row">
+                        <div class="form-group" style="flex: 1;">
+                            <label>Categoria</label>
+                            <select name="categoria" {% if chamado.status != 'ABERTO' or user.perfil.tipo != 'TECNICO' and chamado.solicitante != user %}disabled{% endif %}>
+                                <option value="BUG" {% if chamado.categoria == 'BUG' %}selected{% endif %}>Bug / Erro</option>
+                                <option value="NOVA_IMPLEMENTACAO" {% if chamado.categoria == 'NOVA_IMPLEMENTACAO' %}selected{% endif %}>Nova Implementação</option>
+                                <option value="ALTERACAO" {% if chamado.categoria == 'ALTERACAO' %}selected{% endif %}>Alteração</option>
+                                <option value="REFATORACAO" {% if chamado.categoria == 'REFATORACAO' %}selected{% endif %}>Refatoração</option>
+                                <option value="DEVOPS" {% if chamado.categoria == 'DEVOPS' %}selected{% endif %}>DevOps / Infra</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Prioridade</label>
+                            <select name="prioridade" {% if chamado.status != 'ABERTO' or user.perfil.tipo != 'TECNICO' and chamado.solicitante != user %}disabled{% endif %}>
+                                <option value="BAIXA" {% if chamado.prioridade == 'BAIXA' %}selected{% endif %}>Baixa</option>
+                                <option value="MEDIA" {% if chamado.prioridade == 'MEDIA' %}selected{% endif %}>Média</option>
+                                <option value="ALTA" {% if chamado.prioridade == 'ALTA' %}selected{% endif %}>Alta</option>
+                                <option value="URGENTE" {% if chamado.prioridade == 'URGENTE' %}selected{% endif %}>Urgente</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Solicitante</label>
+                        <input type="text" value="{{ chamado.solicitante.username }}" disabled>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Anexos</label>
+                        {% if chamado.anexos.all %}
+                        <div style="border: 1px solid #ddd; padding: 10px; background: #fafafa; border-radius: 4px;">
+                            {% for anexo in chamado.anexos.all %}
+                            <div style="padding: 8px; border-bottom: 1px solid #eee;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <div>
+                                        <strong>{{ anexo.nome_original }}</strong>
+                                        <br>
+                                        <small style="color: #666;">
+                                            {{ anexo.get_tamanho_formatado }} - Enviado por {{ anexo.usuario.username }} em {{ anexo.data_upload|date:"d/m/Y H:i" }}
+                                        </small>
+                                    </div>
+                                    <div style="display: flex; gap: 5px;">
+                                        {% if anexo.nome_original|lower|slice:"-4:" == ".jpg" or anexo.nome_original|lower|slice:"-5:" == ".jpeg" or anexo.nome_original|lower|slice:"-4:" == ".png" or anexo.nome_original|lower|slice:"-4:" == ".gif" or anexo.nome_original|lower|slice:"-5:" == ".webp" %}
+                                        <button type="button" onclick="visualizarImagem('{{ anexo.arquivo.url }}', '{{ anexo.nome_original }}')" class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.85rem;">
+                                            👁️ Visualizar
+                                        </button>
+                                        {% endif %}
+                                        <a href="{{ anexo.arquivo.url }}" download class="btn btn-secondary" style="padding: 5px 10px; font-size: 0.85rem;">
+                                            ⬇️ Download
+                                        </a>
+                                        {% if user.perfil.tipo == 'TECNICO' or anexo.usuario == user %}
+                                        <button type="button" onclick="confirmarDelecao({{ anexo.id }}, '{{ anexo.nome_original }}')" class="btn btn-danger" style="padding: 5px 10px; font-size: 0.85rem; background: #dc3545; color: white; border: none; cursor: pointer;">
+                                            🗑️ Deletar
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- Preview da imagem (thumbnails) -->
+                                {% if anexo.nome_original|lower|slice:"-4:" == ".jpg" or anexo.nome_original|lower|slice:"-5:" == ".jpeg" or anexo.nome_original|lower|slice:"-4:" == ".png" or anexo.nome_original|lower|slice:"-4:" == ".gif" or anexo.nome_original|lower|slice:"-5:" == ".webp" %}
+                                <img src="{{ anexo.arquivo.url }}" alt="{{ anexo.nome_original }}" style="max-width: 150px; max-height: 100px; border-radius: 4px; cursor: pointer; margin-top: 5px;" onclick="visualizarImagem('{{ anexo.arquivo.url }}', '{{ anexo.nome_original }}')">
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div style="border: 1px dashed #ccc; padding: 10px; background: #fafafa; color: #666; text-align: center;">
+                            Nenhum anexo disponível
+                        </div>
+                        {% endif %}
+
+                        <!-- Adicionar novos anexos -->
+                        <div style="margin-top: 10px;">
+                            <label style="font-size: 0.9rem;">Adicionar Anexos</label>
+                            <input type="file" name="novos_anexos" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip">
+                            <small style="color: #666; display: block; margin-top: 5px;">
+                                Máximo: 25MB por arquivo
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Modal de Visualização de Imagem -->
+                    <div id="imageModal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9);" onclick="fecharModal()">
+                        <span style="position: absolute; top: 20px; right: 35px; color: #f1f1f1; font-size: 40px; font-weight: bold; cursor: pointer;" onclick="fecharModal()">&times;</span>
+                        <div style="display: flex; justify-content: center; align-items: center; height: 100%; padding: 20px;">
+                            <div style="max-width: 90%; max-height: 90%; text-align: center;">
+                                <img id="modalImage" src="" alt="" style="max-width: 100%; max-height: 80vh; border-radius: 8px;">
+                                <p id="modalCaption" style="color: #fff; padding: 10px; font-size: 1.2rem; margin-top: 10px;"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal de Confirmação de Deleção -->
+                    <div id="deleteModal" style="display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+                        <div style="background: white; margin: 15% auto; padding: 20px; border-radius: 8px; width: 400px; max-width: 90%;">
+                            <h3 style="margin-top: 0;">Confirmar Deleção</h3>
+                            <p id="deleteMessage" style="margin: 20px 0;"></p>
+                            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                                <button type="button" onclick="fecharModalDelecao()" class="btn btn-secondary" style="padding: 8px 16px;">
+                                    Cancelar
+                                </button>
+                                <button type="button" onclick="deletarAnexo()" class="btn btn-danger" style="padding: 8px 16px; background: #dc3545; color: white; border: none; cursor: pointer;">
+                                    Deletar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <script>
+                        let anexoIdParaDeletar = null;
+
+                        function visualizarImagem(url, nome) {
+                            document.getElementById('modalImage').src = url;
+                            document.getElementById('modalCaption').textContent = nome;
+                            document.getElementById('imageModal').style.display = 'block';
+                        }
+
+                        function fecharModal() {
+                            document.getElementById('imageModal').style.display = 'none';
+                        }
+
+                        function confirmarDelecao(anexoId, nomeArquivo) {
+                            anexoIdParaDeletar = anexoId;
+                            document.getElementById('deleteMessage').textContent =
+                                `Tem certeza que deseja deletar o arquivo "${nomeArquivo}"? Esta ação não pode ser desfeita.`;
+                            document.getElementById('deleteModal').style.display = 'block';
+                        }
+
+                        function fecharModalDelecao() {
+                            document.getElementById('deleteModal').style.display = 'none';
+                            anexoIdParaDeletar = null;
+                        }
+
+                        function deletarAnexo() {
+                            if (anexoIdParaDeletar) {
+                                // Criar formulário para enviar requisição POST
+                                const form = document.createElement('form');
+                                form.method = 'POST';
+                                form.action = '{% url "deletar_anexo" chamado.id 0 %}'.replace('/0/', '/' + anexoIdParaDeletar + '/');
+
+                                // Adicionar CSRF token
+                                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                                const csrfInput = document.createElement('input');
+                                csrfInput.type = 'hidden';
+                                csrfInput.name = 'csrfmiddlewaretoken';
+                                csrfInput.value = csrfToken;
+                                form.appendChild(csrfInput);
+
+                                document.body.appendChild(form);
+                                form.submit();
+                            }
+                        }
+
+                        // Fechar modal ao clicar fora
+                        window.onclick = function(event) {
+                            const imageModal = document.getElementById('imageModal');
+                            if (event.target == imageModal) {
+                                fecharModal();
+                            }
+                        }
+                    </script>
+                </div>
+
+                <!-- Coluna Direita: Controle e Histórico -->
+                <div style="flex: 1; display: flex; flex-direction: column;">
+                    <div class="card">
+                        <h3>Controle (Workflow)</h3>
+                        <hr style="margin: 10px 0;">
+
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select name="status" style="font-weight: bold;" {% if user.perfil.tipo != 'TECNICO' %}disabled{% endif %}>
+                                <option value="ABERTO" {% if chamado.status == 'ABERTO' %}selected{% endif %}>Aberto</option>
+                                <option value="EM_ANDAMENTO" {% if chamado.status == 'EM_ANDAMENTO' %}selected{% endif %}>Em andamento</option>
+                                <option value="BLOQUEADO" {% if chamado.status == 'BLOQUEADO' %}selected{% endif %}>Com Bloqueio</option>
+                                <option value="VALIDACAO" {% if chamado.status == 'VALIDACAO' %}selected{% endif %}>Aguardando Validação</option>
+                                <option value="MIGRACAO" {% if chamado.status == 'MIGRACAO' %}selected{% endif %}>Em migração</option>
+                                <option value="DOC_PENDENTE" {% if chamado.status == 'DOC_PENDENTE' %}selected{% endif %}>Documentação Pendente</option>
+                                <option value="CONCLUIDO" {% if chamado.status == 'CONCLUIDO' %}selected{% endif %}>Concluído</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Atribuir Técnico</label>
+                            <select name="tecnico" {% if user.perfil.tipo != 'TECNICO' %}disabled{% endif %}>
+                                <option value="">-- Selecione --</option>
+                                {% for tec in tecnicos %}
+                                <option value="{{ tec.id }}" {% if chamado.tecnico and chamado.tecnico.id == tec.id %}selected{% endif %}>
+                                    {{ tec.username }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        {% if user.perfil.tipo == 'TECNICO' or chamado.status == 'ABERTO' and chamado.solicitante == user %}
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Salvar Alterações</button>
+                        {% endif %}
+                    </div>
+
+                    <div class="card">
+                        <h3>Histórico</h3>
+                        <ul id="history-list" style="padding-left: 20px; font-size: 0.85rem; color: #555;">
+                            {% if chamado.historico.all %}
+                            {% for hist in chamado.historico.all %}
+                            <li style="margin-bottom: 8px;">
+                                {{ hist.descricao }} - <em>{{ hist.data|date:"d/m/Y H:i" }}</em>
+                            </li>
+                            {% endfor %}
+                            {% else %}
+                            <li>Nenhum histórico disponível.</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</body>
+
+</html>
